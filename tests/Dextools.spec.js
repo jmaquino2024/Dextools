@@ -1,4 +1,4 @@
-import { test, expect, chromium } from '@playwright/test';
+import { test, expect, chromium, firefox } from '@playwright/test';
 const fs = require('fs');
 const path = require('path');
 
@@ -15,9 +15,25 @@ test('Project - Dextools Charts', async () => {
     }
 
     // Launch the browser in non-headless mode
-    const browser = await chromium.launch({ headless: false });
-    const context = await browser.newContext();
+    const browser = await chromium.launch({
+        // channel: 'msedge', 
+        headless: true,  
+        // storageState: 'state.json',
+        // slowMo: 0,  
+    });
+    const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    });
     const page = await context.newPage();
+
+    // Example: Disable WebRTC leaks
+    await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'mediaDevices', {
+            value: {
+                getUserMedia: () => Promise.reject(new Error('NotAllowedError: Permission denied')),
+            },
+        });
+    });
 
     // Set up the download listener to save the file to the 'Screenshots' folder
     page.on('download', (download) => {
@@ -33,7 +49,7 @@ test('Project - Dextools Charts', async () => {
     await page.setViewportSize({ width: 1920, height: 1080 });
 
     await page.goto('https://www.dextools.io/app/en/token/link?t=1733218664567', {
-        timeout: 90000, // 90 seconds
+        timeout: 180000, // 3 Minutes
         waitUntil: 'domcontentloaded' // Ensure basic DOM content is loaded
     });
 
@@ -57,9 +73,50 @@ test('Project - Dextools Charts', async () => {
 
     // await page.pause();
 
-    await page.waitForTimeout(500); 
+    // Wait for the container to be visible and fully loaded
+    await page.waitForSelector('.trading-view__container', { state: 'visible' });
+
+    // Ensure it is fully loaded (e.g., by waiting for specific child elements or text inside it)
+    await page.waitForFunction(() => {
+        const container = document.querySelector('.trading-view__container');
+        return container && container.innerHTML.trim() !== ""; // Check if it has content
+    }, { timeout: 10000 }); // Optional timeout of 10 seconds
+
+    // await page.evaluate(() => {
+    //     const chartContainer = document.querySelector('.trading-view__container');
+     
+    //     chartContainer.style.width = '100vw';
+    //     chartContainer.style.height = '100vh';
+    //     chartContainer.style.position = 'fixed'; 
+    //     chartContainer.style.top = '0';          
+    //     chartContainer.style.left = '0';         
+    //     chartContainer.style.zIndex = '99999';    
+    // });
     
     await frame.locator('div.apply-common-tooltip.customButton-qqNP9X6e.btn-fullscreen').nth(0).click();
+
+    // await page.click('button[aria-label="Close"]');
+
+    // // Select the draggable element
+    // const draggable = page.locator('.cdk-drag.trading-view__drag-handle'); // Replace with actual selector
+
+    // if (await draggable.isVisible()) {
+    //     // Get the bounding box of the element
+    //     const box = await draggable.boundingBox();
+
+    //     // Get the viewport height for dragging to the bottom
+    //     const viewportHeight = await page.evaluate(() => window.innerHeight);
+
+    //     // Perform the drag
+    //     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); // Move to center of the element
+    //     await page.mouse.down(); // Press the mouse button
+    //     await page.mouse.move(box.x + box.width / 2, viewportHeight, { steps: 20 }); // Drag to the bottom of the viewport
+    //     await page.mouse.up(); // Release the mouse button
+
+    //     console.log('Dragged to the bottom.');
+    // } else {
+    //     console.error('Draggable element not visible.');
+    // }
 
     // Wait for the button to be visible
     await frame.locator('#header-toolbar-indicators button[aria-label="Indicators & Strategies"]').waitFor({ state: 'visible' });
@@ -481,6 +538,8 @@ test('Project - Dextools Charts', async () => {
     await page.waitForEvent('download'); // This will wait until the download event is fired
 
     console.log('Download completed and saved in:', downloadFolder);
+
+    // await context.storageState({ path: 'state.json' });
 
     // Final delay to view the page after all clicks
     await page.waitForTimeout(1000);
