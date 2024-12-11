@@ -45,20 +45,26 @@ test('Project - Dextools Charts', async () => {
         });
     });
 
+    // Function to detect and remove ads
+    async function removeAds(page) {
+        // Wait for potential ads to load
+        await page.waitForTimeout(2000); // Adjust timeout as needed
+        // Remove ads from the page
+        await page.evaluate(() => {
+            const adElements = document.querySelectorAll('.coinzilla-banner-container, .sevioads, .ad-container');
+            adElements.forEach(ad => ad.remove());
+        });
+        console.log('Ads detected and removed.');
+    }
+
     // Set viewport to full screen (1920x1080 as a common standard for maximized windows)
     await page.setViewportSize({ width: 1920, height: 1080 });
 
-    await page.goto('https://www.dextools.io/app/en/token/link?t=1733218664567', {
+    await page.goto('https://www.dextools.io/app/en/pairs', {
         timeout: 180000, // 3 Minutes
         waitUntil: 'domcontentloaded' // Ensure basic DOM content is loaded
     });
-
-    // Wait for ads to load and then remove them
-    await page.waitForTimeout(2000); // Wait for 2 seconds for ads to load
-    await page.evaluate(() => {
-        const adElements = document.querySelectorAll('.coinzilla-banner-container, .sevioads, .ad-container');
-        adElements.forEach(ad => ad.remove()); // Remove any ad elements
-    });
+    await removeAds(page);
 
     // Locate the first iframe
     const firstIframeLocator = page.locator('iframe').first(); // Use locator.first()
@@ -72,9 +78,28 @@ test('Project - Dextools Charts', async () => {
     }
 
     // await page.pause();
+        
+    // Wait for the search icon to be visible before clicking
+    await page.waitForSelector('//div[contains(@class, "search-container")]//fa-icon[contains(@class, "search-icon")]', { state: 'visible' });
+    await page.locator('//div[contains(@class, "search-container")]//fa-icon[contains(@class, "search-icon")]').click();
+
+    // Wait for the search input field to be visible before filling in text
+    await page.waitForSelector('//div[contains(@class, "search-container")]//input[contains(@class, "search-pairs")]', { state: 'visible' });
+
+    // Type the specified text and press Enter
+    await page.locator('//div[contains(@class, "search-container")]//input[contains(@class, "search-pairs")]')
+        .fill('0x72928d5436ff65e57f72d5566dcd3baedc649a88');
+    await page.locator('//div[contains(@class, "search-container")]//input[contains(@class, "search-pairs")]')
+        .press('Enter');
+
+    // Select the first row using a unique class
+    const firstRowSelector = 'div.search-result-item:first-of-type';
+    await page.waitForSelector(firstRowSelector); // Ensure the row is loaded
+    await page.click(firstRowSelector); // Click the first row
 
     // Wait for the container to be visible and fully loaded
     await page.waitForSelector('.trading-view__container', { state: 'visible' });
+    await removeAds(page);
 
     // Ensure it is fully loaded (e.g., by waiting for specific child elements or text inside it)
     await page.waitForFunction(() => {
@@ -82,41 +107,7 @@ test('Project - Dextools Charts', async () => {
         return container && container.innerHTML.trim() !== ""; // Check if it has content
     }, { timeout: 10000 }); // Optional timeout of 10 seconds
 
-    // await page.evaluate(() => {
-    //     const chartContainer = document.querySelector('.trading-view__container');
-     
-    //     chartContainer.style.width = '100vw';
-    //     chartContainer.style.height = '100vh';
-    //     chartContainer.style.position = 'fixed'; 
-    //     chartContainer.style.top = '0';          
-    //     chartContainer.style.left = '0';         
-    //     chartContainer.style.zIndex = '99999';    
-    // });
-    
     await frame.locator('div.apply-common-tooltip.customButton-qqNP9X6e.btn-fullscreen').nth(0).click();
-
-    // await page.click('button[aria-label="Close"]');
-
-    // // Select the draggable element
-    // const draggable = page.locator('.cdk-drag.trading-view__drag-handle'); // Replace with actual selector
-
-    // if (await draggable.isVisible()) {
-    //     // Get the bounding box of the element
-    //     const box = await draggable.boundingBox();
-
-    //     // Get the viewport height for dragging to the bottom
-    //     const viewportHeight = await page.evaluate(() => window.innerHeight);
-
-    //     // Perform the drag
-    //     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); // Move to center of the element
-    //     await page.mouse.down(); // Press the mouse button
-    //     await page.mouse.move(box.x + box.width / 2, viewportHeight, { steps: 20 }); // Drag to the bottom of the viewport
-    //     await page.mouse.up(); // Release the mouse button
-
-    //     console.log('Dragged to the bottom.');
-    // } else {
-    //     console.error('Draggable element not visible.');
-    // }
 
     // Wait for the button to be visible
     await frame.locator('#header-toolbar-indicators button[aria-label="Indicators & Strategies"]').waitFor({ state: 'visible' });
